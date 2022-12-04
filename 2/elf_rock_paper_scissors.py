@@ -202,12 +202,12 @@ def explicit_decrypt_line(line: str) -> Union[Game, None]:
 
 def get_games(
         decrypt_line: Callable[str, Game],
-        aoc_input: str = 'input'
+        puzzle_input: str = 'input.txt'
 ) -> List[Game]:
     """Using the provided decryption function construct a list of games from
-    the input located at aoc_input.
+    the input located at puzzle_input.
     """
-    with open(aoc_input) as f:
+    with open(puzzle_input) as f:
         games = []
         game = decrypt_line(f.readline())
         while game:
