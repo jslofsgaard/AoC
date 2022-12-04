@@ -97,17 +97,5 @@ if __name__ == '__main__':
         pairings
     ))
 
-    for pair in pairings:
-        if (
-                pair.left_section.overlaps(pair.right_section) and
-                not pair.right_section.overlaps(pair.left_section)
-        ):
-            print('Case 1: ' + str(pair))
-        elif (
-                not pair.left_section.overlaps(pair.right_section) and
-                pair.right_section.overlaps(pair.left_section)
-        ):
-            print('Case 2: ' + str(pair))
-
     print(f'Pairings with fully contained sections: {count_fully_contained}')
     print(f'Pairings with overlaping sections: {count_overlaps}')
