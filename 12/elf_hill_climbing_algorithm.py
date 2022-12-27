@@ -1,8 +1,8 @@
-from typing import Optional
 import time
+import itertools
+from typing import Optional
 
 Point = tuple[int, int]
-Path = list[Point]
 
 
 class Colors:
@@ -10,121 +10,6 @@ class Colors:
     blue = '\033[34m'
     black = '\033[30m'
     default = '\033[39m'
-
-
-class PathFinder:
-    def __init__(self, grid: "Grid", debug: bool = False):
-        self.grid = grid
-        self.debug = debug
-
-    def find_path(self) -> Path:
-        def get_step(current: Point) -> Optional[Point]:
-            steps = [
-                step for step in self.grid.cardinals(current)
-                if step not in walked and
-                self.grid.height(step) - self.grid.height(current) <= 1
-            ]
-            return min(
-                steps,
-                key=lambda step: (
-                    abs(self.grid.end[0] - step[0]) +
-                    abs(self.grid.end[1] - step[1])
-                ),
-                default=None
-            )
-
-        walked = [self.grid.start]
-        path = [self.grid.start]
-        while path and path[-1] != self.grid.end:
-
-            if self.debug:
-                self.grid.print_grid(self.get_chart(path))
-                time.sleep(0.01)
-
-            # can we advance somewhere?
-            step = get_step(path[-1])
-            if step is not None:
-                path.append(step)
-                walked.append(step)
-                continue
-
-            # we cannot advance, backtrack
-            path.pop()
-
-        return path
-
-    def shorten_path(self, path: Path) -> Path:
-        def get_link(walked: Path) -> Optional[Point]:
-            links = [
-                link for link in self.grid.cardinals(walked[-1])
-                if link in walked[:-2] and
-                self.grid.height(walked[-1]) - self.grid.height(link) <= 1
-            ]
-            return min(
-                links,
-                key=lambda link: len(walked[-1]) - len(link),
-                default=None
-            )
-
-        def get_shorter(path: Path) -> Path:
-            walked = []
-            for step in path:
-                walked.append(step)
-                link = get_link(walked)
-                if link is not None:
-                    start = path.index(link)
-                    stop = path.index(step)
-                    return path[:start+1] + path[stop:]
-
-            return path
-
-        shortend = get_shorter(path)
-        while shortend != path:
-
-            if self.debug:
-                self.grid.print_grid(self.get_chart(shortend))
-                time.sleep(0.01)
-
-            path = shortend
-            shortend = get_shorter(path)
-
-        if self.debug:
-            self.grid.print_grid(self.get_chart(path))
-            time.sleep(0.01)
-
-        return path
-
-    def get_chart(self, path: Path) -> dict[Point, str]:
-        def get_marking(step: Point, next_step: Point) -> str:
-            if next_step[0] - step[0] == -1:  # Is next step above?
-                return Colors.red + '↑' + Colors.default
-
-            elif next_step[0] - step[0] == 1:  # Is next step below?
-                return Colors.red + '↓' + Colors.default
-
-            elif next_step[1] - step[1] == 1:  # Is next step to the right?
-                return Colors.red + '→' + Colors.default
-
-            elif next_step[1] - step[1] == -1:  # Is next step to the left?
-                return Colors.red + '←' + Colors.default
-
-            else:
-                raise Exception('Next step is not adjacent!')
-
-        chart = {}
-        filtered = list(filter(
-                lambda step: step not in (self.grid.start, self.grid.end),
-                path
-        ))
-        for step, next_step in zip(filtered[:-1],  filtered[1:]):
-            chart[step] = get_marking(step, next_step)
-
-        if path[-1] != self.grid.end:
-            chart[path[-1]] = Colors.blue + 'X' + Colors.default
-        else:
-            chart[path[-2]] = get_marking(path[-2], path[-1])
-
-        return chart
 
 
 class Grid:
@@ -139,80 +24,241 @@ class Grid:
         self.end = end
 
     @property
-    def rows(self) -> int:
+    def nrow(self) -> int:
         return len(self.grid)
 
     @property
-    def columns(self) -> int:
+    def ncol(self) -> int:
         return len(self.grid[0])
 
     @property
-    def coordinates(self) -> int:
-        return len(self.grid) * len(self.grid[0])
+    def points(self) -> int:
+        return tuple(itertools.product(range(self.nrow), range(self.ncol)))
+
+    @property
+    def npoints(self) -> int:
+        return len(self.points)
 
     def __str__(self) -> str:
         return (
-            f'Grid with {self.rows} rows, {self.columns} columns '
-            f'yielding a total of {self.coordinates} possible coordinates.'
+            f'Grid with {self.nrow} rows, {self.ncol} columns '
+            f'yielding a total of {self.npoints} points.'
         )
 
-    @property
-    def grid_str(self) -> list[list[str]]:
+    def stringify(self) -> list[list[str]]:
+        """Return a string representation of the grid where each height is
+        translated back into a char.
+        """
         height_to_char = {
             0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h',
             8: 'i', 9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o',
             15: 'p', 16: 'q', 17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v',
             22: 'w', 23: 'x', 24: 'y', 25: 'z'
         }
-        string_grid = [
-            [
-                Colors.default + height_to_char[height] + Colors.default
-                for height in row
-            ]
+        out = [
+            [height_to_char[height] for height in row]
             for row in self.grid
         ]
-        string_grid[self.start[0]][self.start[1]] = \
+        out[self.start[0]][self.start[1]] = \
             Colors.blue + 'S' + Colors.default
 
-        string_grid[self.end[0]][self.end[1]] = \
+        out[self.end[0]][self.end[1]] = \
             Colors.blue + 'E' + Colors.default
 
-        return string_grid
+        return out
 
     def height(self, point: Point) -> int:
-        """Return the height in the grid at point. Points outside the grid are
-        assigned a height of 100.
-        """
-        if (
-                point[0] in range(0, self.rows) and
-                point[1] in range(0, self.columns)
-        ):
-            return self.grid[point[0]][point[1]]
+        """Return the height in the grid at point."""
+        if point not in self.points:
+            raise ValueError('Point not in grid!')
 
-        return 100
+        return self.grid[point[0]][point[1]]
+
+    def elevation(self, from_point: Point, to_point: Point) -> int:
+        """Return the height difference in *moving* from from_point to
+        to_point.
+        """
+        if from_point not in self.points or to_point not in self.points:
+            raise ValueError('Point not in grid!')
+
+        return self.height(to_point) - self.height(from_point)
 
     def cardinals(self, point: Point) -> list[Point]:
-        """Return the points to the left, right, above and below point."""
+        """Return points in grid adjacent (left, right, above, below) to point.
+        """
         return [
-            (point[0], point[1] + 1),
-            (point[0] - 1, point[1]),
-            (point[0] + 1, point[1]),
-            (point[0], point[1] - 1)
+            point for point in [
+                (point[0], point[1] + 1),
+                (point[0] - 1, point[1]),
+                (point[0] + 1, point[1]),
+                (point[0], point[1] - 1)
+            ]
+            if point in self.points
         ]
 
-    def print_grid(self, *charts: dict[Point, str]) -> None:
-        grid = self.grid_str
+    def print(self, *paths: 'Path') -> None:
+        """Print the string representation of gird with each path layerd on top
+        successively.
+        """
+        grid = self.stringify()
 
-        for chart in charts:
-            for coord, val in chart.items():
-                grid[coord[0]][coord[1]] = val
+        for path in paths:
+            for point, sym in path.chart().items():
+                grid[point[0]][point[1]] = sym
 
-        print('+' + ''.join(['-' for _ in range(self.columns)]) + '+')
+        print('+' + ''.join(['-' for _ in range(self.ncol)]) + '+')
 
-        for string_row in grid:
-            print('|' + ''.join(string_row) + '|')
+        for row in grid:
+            print('|' + ''.join(row) + '|')
 
-        print('+' + ''.join(['-' for _ in range(self.columns)]) + '+')
+        print('+' + ''.join(['-' for _ in range(self.ncol)]) + '+')
+
+
+class Path:
+    def __init__(self, grid: Grid, proto_path: list[Point]):
+        self.grid = grid
+        self.path = tuple(proto_path)
+
+    @property
+    def length(self) -> int:
+        return len(self.path)
+
+    @property
+    def valid(self) -> bool:
+        for point, next_point in zip(self.path[:-1], self.path[1:]):
+            if not (
+                    next_point in self.grid.cardinals(point) and
+                    self.grid.elevation(point, next_point) <= 1
+            ):
+                return False
+
+        return True
+
+    @property
+    def complete(self) -> bool:
+        return all((
+            self.valid,
+            self.path[0] == self.grid.start,
+            self.path[-1] == self.grid.end
+        ))
+
+    def chart(self) -> dict[Point, str]:
+        def sym(point: Point, next_point: Point) -> str:
+            out = {
+                (-1, 0): Colors.red + '↑' + Colors.default,
+                (1, 0): Colors.red + '↓' + Colors.default,
+                (0, 1): Colors.red + '→' + Colors.default,
+                (0, -1): Colors.red + '←' + Colors.default
+            }
+            return out[(next_point[0] - point[0], next_point[1] - point[1])]
+
+        chart = {}
+        filtered = [
+            point for point in self.path
+            if point not in (self.grid.start, self.grid.end)
+        ]
+        for point, next_point in zip(filtered[:-1],  filtered[1:]):
+            chart[point] = sym(point, next_point)
+
+        if self.path[-1] != self.grid.end:
+            chart[self.path[-1]] = Colors.blue + 'X' + Colors.default
+        else:
+            chart[self.path[-2]] = sym(self.path[-2], self.path[-1])
+
+        return chart
+
+
+class DeepDiver:
+    def __init__(self, grid: Grid, debug: bool = False):
+        self.grid = grid
+        self.path = []
+        self.walked = []
+        self.debug = debug
+
+    def do_debug(self) -> None:
+        print('\033[2J\033[H', end='')
+        self.grid.print(Path(self.grid, self.path))
+        time.sleep(0.001)
+
+    def search(self) -> Path:
+        self.walked.append(self.grid.start)
+        self.path.append(self.grid.start)
+
+        while self.path and self.path[-1] != self.grid.end:
+            step = self.get_step(self.path[-1])  # can we advance somewhere?
+            if step is not None:
+                self.path.append(step)
+                self.walked.append(step)
+            else:
+                self.path.pop()  # we cannot advance, backtrack
+
+            if self.debug:
+                self.do_debug()
+
+        return self.refine()
+
+    def get_step(self, point: Point) -> Optional[Point]:
+        return self.step_selector([
+            step for step in self.grid.cardinals(point)
+            if step not in self.walked and
+            self.grid.elevation(point, step) <= 1
+        ])
+
+    def step_selector(self, steps: list[Point]) -> Optional[Point]:
+        def norm(step) -> int:
+            dividend = (
+                abs(self.grid.end[0] - step[0]) +
+                abs(self.grid.end[1] - step[1])
+            )
+            divisor = self.grid.nrow + self.grid.ncol
+            return dividend / divisor
+
+        return min(
+            steps,
+            key=lambda step: (
+                -0.4 * self.grid.height(step)/25 +
+                -0.6 * norm(step)
+            ),
+            default=None
+        )
+
+    def refine(self) -> Path:
+        def get_link(walked: list[Point]) -> Optional[Point]:
+            links = [
+                link for link in self.grid.cardinals(walked[-1])
+                if link in walked[:-2] and
+                self.grid.elevation(link, walked[-1]) <= 1
+            ]
+            return min(
+                links,
+                key=lambda link: (
+                    self.path.index(walked[-1]) - self.path.index(link)
+                ),
+                default=None
+            )
+
+        def remove_neighbours() -> bool:
+            walked = []
+            for step in self.path:
+                walked.append(step)
+
+                link = get_link(walked)
+                if link is not None:
+                    start = self.path.index(link)
+                    stop = self.path.index(walked[-1])
+                    return self.path[:start+1] + self.path[stop:]
+
+            return None
+
+        refined = remove_neighbours()
+        while refined:
+            self.path = refined
+            if self.debug:
+                self.do_debug()
+
+            refined = remove_neighbours()
+
+        return Path(self.grid, self.path)
 
 
 def parse_line(line: str) -> list[int]:
@@ -252,13 +298,16 @@ def get_grid(puzzle_input: str = 'input.txt', debug: bool = False) -> Grid:
 
 if __name__ == '__main__':
     grid = get_grid()
-    grid.print_grid()
+    grid.print()
 
-    response = input('Find path to summit? [Y/n]: ')
+    response = input('Find path to summit with DeepDiver? [Y/n]: ')
     while response not in ('Y', 'y', 'N', 'n'):
         response = input('Please answer Y[es] or [n]o: ')
 
     if response in ('Y', 'y'):
-        finder = PathFinder(grid, True)
-        path = finder.shorten_path(finder.find_path())
-        print(f'Length of found path: {len(path)}')
+        finder = DeepDiver(grid, True)
+        path = finder.search()
+        print(f'Path length : {path.length}')
+        print(f'Path is valid: {path.valid}')
+        print(f'Path is complete: {path.complete}')
+        grid.print(path)
