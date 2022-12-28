@@ -5,9 +5,15 @@ from typing import Optional
 Point = tuple[int, int]
 
 
+CLIMB = 1
+
+
 class Colors:
     red = '\033[31m'
+    green = '\033[32m'
     blue = '\033[34m'
+    magenta = '\033[35m'
+    cyan = '\033[36m'
     black = '\033[30m'
     default = '\033[39m'
 
@@ -60,10 +66,10 @@ class Grid:
             for row in self.grid
         ]
         out[self.start[0]][self.start[1]] = \
-            Colors.blue + 'S' + Colors.default
+            Colors.cyan + 'S' + Colors.default
 
         out[self.end[0]][self.end[1]] = \
-            Colors.blue + 'E' + Colors.default
+            Colors.cyan + 'E' + Colors.default
 
         return out
 
@@ -128,7 +134,7 @@ class Path:
         for point, next_point in zip(self.path[:-1], self.path[1:]):
             if not (
                     next_point in self.grid.cardinals(point) and
-                    self.grid.elevation(point, next_point) <= 1
+                    self.grid.elevation(point, next_point) <= CLIMB
             ):
                 return False
 
@@ -136,6 +142,9 @@ class Path:
 
     @property
     def complete(self) -> bool:
+        if not self.path:
+            return False
+
         return all((
             self.valid,
             self.path[0] == self.grid.start,
@@ -143,42 +152,54 @@ class Path:
         ))
 
     def chart(self) -> dict[Point, str]:
-        def sym(point: Point, next_point: Point) -> str:
+        chart = {}
+
+        if not self.path:
+            return chart
+
+        def arrow(point: Point, next_point: Point) -> str:
+            if self.grid.height(point) < 2:
+                color = Colors.red
+            elif self.grid.height(point) == 2:
+                color = Colors.green
+            elif 2 < self.grid.height(point) < 10:
+                color = Colors.blue
+            else:
+                color = Colors.magenta
+
             out = {
-                (-1, 0): Colors.red + '↑' + Colors.default,
-                (1, 0): Colors.red + '↓' + Colors.default,
-                (0, 1): Colors.red + '→' + Colors.default,
-                (0, -1): Colors.red + '←' + Colors.default
+                (-1, 0): color + '↑' + Colors.default,
+                (1, 0): color + '↓' + Colors.default,
+                (0, 1): color + '→' + Colors.default,
+                (0, -1): color + '←' + Colors.default
             }
             return out[(next_point[0] - point[0], next_point[1] - point[1])]
 
-        chart = {}
         filtered = [
             point for point in self.path
             if point not in (self.grid.start, self.grid.end)
         ]
         for point, next_point in zip(filtered[:-1],  filtered[1:]):
-            chart[point] = sym(point, next_point)
+            chart[point] = arrow(point, next_point)
 
         if self.path[-1] != self.grid.end:
-            chart[self.path[-1]] = Colors.blue + 'X' + Colors.default
+            chart[self.path[-1]] = Colors.cyan + 'X' + Colors.default
         else:
-            chart[self.path[-2]] = sym(self.path[-2], self.path[-1])
+            chart[self.path[-2]] = arrow(self.path[-2], self.path[-1])
 
         return chart
 
 
-class DeepDiver:
-    def __init__(self, grid: Grid, debug: bool = False):
+class Seeker:
+    def __init__(self, grid: Grid, visual: bool = False):
         self.grid = grid
         self.path = []
         self.walked = []
-        self.debug = debug
+        self.visual = visual
 
-    def do_debug(self) -> None:
-        print('\033[2J\033[H', end='')
+    def print(self) -> None:
+        print('\033[2J\033[H', end='')  # Clear screen on terminal
         self.grid.print(Path(self.grid, self.path))
-        time.sleep(0.001)
 
     def search(self) -> Path:
         self.walked.append(self.grid.start)
@@ -189,76 +210,61 @@ class DeepDiver:
             if step is not None:
                 self.path.append(step)
                 self.walked.append(step)
-            else:
-                self.path.pop()  # we cannot advance, backtrack
 
-            if self.debug:
-                self.do_debug()
+            else:  # we cannot advance, backtrack
+                self.path.pop()
 
         return self.refine()
 
     def get_step(self, point: Point) -> Optional[Point]:
-        return self.step_selector([
+        steps = [
             step for step in self.grid.cardinals(point)
             if step not in self.walked and
-            self.grid.elevation(point, step) <= 1
-        ])
+            self.grid.elevation(point, step) <= CLIMB
+        ]
+        return min(steps, key=self.metric, default=None)
 
-    def step_selector(self, steps: list[Point]) -> Optional[Point]:
-        def norm(step) -> int:
-            dividend = (
-                abs(self.grid.end[0] - step[0]) +
-                abs(self.grid.end[1] - step[1])
-            )
-            divisor = self.grid.nrow + self.grid.ncol
-            return dividend / divisor
-
-        return min(
-            steps,
-            key=lambda step: (
-                -0.4 * self.grid.height(step)/25 +
-                -0.6 * norm(step)
-            ),
-            default=None
+    def metric(self, point: Point) -> int:
+        """Returns the distance of step from the end point in the grid. The
+        horisontal and vertical distances are weighted according to the the
+        number of rows and columns in the grid.
+        """
+        nrow = self.grid.nrow
+        ncol = self.grid.ncol
+        tot = nrow + ncol
+        return (
+            (nrow/tot) * abs(point[0] - self.grid.end[0]) +
+            (ncol/tot) * abs(point[1] - self.grid.end[1])
         )
 
     def refine(self) -> Path:
-        def get_link(walked: list[Point]) -> Optional[Point]:
-            links = [
-                link for link in self.grid.cardinals(walked[-1])
-                if link in walked[:-2] and
-                self.grid.elevation(link, walked[-1]) <= 1
-            ]
-            return min(
-                links,
-                key=lambda link: (
-                    self.path.index(walked[-1]) - self.path.index(link)
-                ),
-                default=None
-            )
+        if self.path:
+            i = 0
+            while self.path[i] != self.grid.end:
+                i += 1
 
-        def remove_neighbours() -> bool:
-            walked = []
-            for step in self.path:
-                walked.append(step)
+                loopback = self.get_loopback(i)
+                if loopback is not None:
+                    j = self.path.index(loopback)
+                    self.path = self.path[:j+1] + self.path[i:]
+                    i = j
 
-                link = get_link(walked)
-                if link is not None:
-                    start = self.path.index(link)
-                    stop = self.path.index(walked[-1])
-                    return self.path[:start+1] + self.path[stop:]
-
-            return None
-
-        refined = remove_neighbours()
-        while refined:
-            self.path = refined
-            if self.debug:
-                self.do_debug()
-
-            refined = remove_neighbours()
+                if self.visual:
+                    self.print()
 
         return Path(self.grid, self.path)
+
+    def get_loopback(self, index: int) -> Optional[Point]:
+        loopbacks = [
+            point for point in self.grid.cardinals(self.path[index])
+            if point in self.path[:index-1] and
+            self.grid.elevation(point, self.path[index]) <= CLIMB
+        ]
+
+        return min(loopbacks, key=self.step_count, default=None)
+
+    def step_count(self, point: Point) -> int:
+        return self.path.index(point)
 
 
 def parse_line(line: str) -> list[int]:
@@ -300,14 +306,24 @@ if __name__ == '__main__':
     grid = get_grid()
     grid.print()
 
-    response = input('Find path to summit with DeepDiver? [Y/n]: ')
+    response = input('Find path to summit with Seeker algorithm? [Y/n]: ')
     while response not in ('Y', 'y', 'N', 'n'):
         response = input('Please answer Y[es] or [n]o: ')
 
     if response in ('Y', 'y'):
-        finder = DeepDiver(grid, True)
+        visual = input('Show the algorithm visually? [Y/n]: ')
+        while response not in ('Y', 'y', 'N', 'n'):
+            visual = input('Please answer Y[es] or [n]o: ')
+
+        if visual in ('Y', 'y'):
+            finder = Seeker(grid, True)
+        else:
+            finder = Seeker(grid)
+        start = time.time()
         path = finder.search()
+        stop = time.time()
         print(f'Path length : {path.length}')
         print(f'Path is valid: {path.valid}')
         print(f'Path is complete: {path.complete}')
+        print(f'Time to find path: {stop - start}')
         grid.print(path)
