@@ -1,11 +1,41 @@
-import time
 import itertools
-from typing import Optional
+import time
+from typing import Optional, Self
 
 Point = tuple[int, int]
 
+CLIMB_HEIGHT = 1
 
-CLIMB = 1
+CHAR_HEIGHT = {
+    'a': 0,
+    'b': 1,
+    'c': 2,
+    'd': 3,
+    'e': 4,
+    'f': 5,
+    'g': 6,
+    'h': 7,
+    'i': 8,
+    'j': 9,
+    'k': 10,
+    'l': 11,
+    'm': 12,
+    'n': 13,
+    'o': 14,
+    'p': 15,
+    'q': 16,
+    'r': 17,
+    's': 18,
+    't': 19,
+    'u': 20,
+    'v': 21,
+    'w': 22,
+    'x': 23,
+    'y': 24,
+    'z': 25,
+    'S': 0,  # Start at lowest height
+    'E': 25  # End at highest
+}
 
 
 class Colors:
@@ -19,15 +49,65 @@ class Colors:
 
 
 class Grid:
+    """Handles the boring aspects of the grid data, providing some methods to query
+    properties of the grid and printing it.
+
+    """
     def __init__(
             self,
-            proto_grid: list[list[int]],
+            grid: list[list[int]],
             start: Point,
             end: Point,
     ):
-        self.grid = tuple(tuple(row) for row in proto_grid)
+        self.grid = tuple(tuple(row) for row in grid)
         self.start = start
         self.end = end
+
+    def __str__(self) -> str:
+        return (
+            f'Grid with {self.nrow} rows, {self.ncol} columns '
+            f'yielding a total of {self.npoints} points.'
+        )
+
+    def _char_grid(self) -> list[list[str]]:
+        """A string representation of the grid where each height is represented by a
+        character.
+
+        """
+        height_to_char = {v: k for k,v in CHAR_HEIGHT.items()}
+        out = [
+            [height_to_char[height] for height in row]
+            for row in self.grid
+        ]
+
+        # Special chars and colors for start and end
+        out[self.start[0]][self.start[1]] = Colors.cyan + 'S' + Colors.default
+        out[self.end[0]][self.end[1]] = Colors.cyan + 'E' + Colors.default
+
+        return out
+
+    @classmethod
+    def from_puzzle(cls, puzzle_input: str = 'input.txt') -> Self:
+
+        def parse_line(line: str) -> list[int]:
+            return [CHAR_HEIGHT[char] for char in line.strip()]
+
+        with open(puzzle_input) as f:
+            grid = []
+            line = f.readline()
+            while line:
+                grid.append(parse_line(line))
+
+                if line.find('S') != -1:
+                    start = (len(grid) - 1, line.find('S'))
+
+                if line.find('E') != -1:
+                    end = (len(grid) - 1, line.find('E'))
+
+                line = f.readline()
+
+        return Grid(grid, start, end)
+
 
     @property
     def nrow(self) -> int:
@@ -38,60 +118,29 @@ class Grid:
         return len(self.grid[0])
 
     @property
+    def npoints(self) -> int:
+        return self.nrow * self.ncol
+
+    @property
     def points(self) -> int:
         return tuple(itertools.product(range(self.nrow), range(self.ncol)))
 
-    @property
-    def npoints(self) -> int:
-        return len(self.points)
-
-    def __str__(self) -> str:
-        return (
-            f'Grid with {self.nrow} rows, {self.ncol} columns '
-            f'yielding a total of {self.npoints} points.'
-        )
-
-    def stringify(self) -> list[list[str]]:
-        """Return a string representation of the grid where each height is
-        translated back into a char.
-        """
-        height_to_char = {
-            0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h',
-            8: 'i', 9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o',
-            15: 'p', 16: 'q', 17: 'r', 18: 's', 19: 't', 20: 'u', 21: 'v',
-            22: 'w', 23: 'x', 24: 'y', 25: 'z'
-        }
-        out = [
-            [height_to_char[height] for height in row]
-            for row in self.grid
-        ]
-        out[self.start[0]][self.start[1]] = \
-            Colors.cyan + 'S' + Colors.default
-
-        out[self.end[0]][self.end[1]] = \
-            Colors.cyan + 'E' + Colors.default
-
-        return out
-
     def height(self, point: Point) -> int:
-        """Return the height in the grid at point."""
+        """The height in the grid at point."""
         if point not in self.points:
             raise ValueError('Point not in grid!')
 
         return self.grid[point[0]][point[1]]
 
     def elevation(self, from_point: Point, to_point: Point) -> int:
-        """Return the height difference in *moving* from from_point to
-        to_point.
-        """
+        """The height difference in *moving* from from_point to to_point."""
         if from_point not in self.points or to_point not in self.points:
             raise ValueError('Point not in grid!')
 
         return self.height(to_point) - self.height(from_point)
 
     def cardinals(self, point: Point) -> list[Point]:
-        """Return points in grid adjacent (left, right, above, below) to point.
-        """
+        """Points in grid adjacent (left, right, above, below) to point."""
         return [
             point for point in [
                 (point[0], point[1] + 1),
@@ -103,10 +152,11 @@ class Grid:
         ]
 
     def print(self, *paths: 'Path') -> None:
-        """Print the string representation of gird with each path layerd on top
+        """Print the string representation of the grid with each path layered on top
         successively.
+
         """
-        grid = self.stringify()
+        grid = self._char_grid()
 
         for path in paths:
             for point, sym in path.chart().items():
@@ -121,9 +171,14 @@ class Grid:
 
 
 class Path:
-    def __init__(self, grid: Grid, proto_path: list[Point]):
+    """Handles the boring aspects of path data. Supplies methods that check if a path is
+    valid, if it is compelete and computes its lenght. Most importantly, provides a
+    method for 'charting' a path.
+
+    """
+    def __init__(self, grid: Grid, path: list[Point]):
         self.grid = grid
-        self.path = tuple(proto_path)
+        self.path = tuple(path)
 
     @property
     def length(self) -> int:
@@ -131,10 +186,13 @@ class Path:
 
     @property
     def valid(self) -> bool:
+        if not self.path: # Is the path empty?
+            return False
+
         for point, next_point in zip(self.path[:-1], self.path[1:]):
             if not (
-                    next_point in self.grid.cardinals(point) and
-                    self.grid.elevation(point, next_point) <= CLIMB
+                    next_point in self.grid.cardinals(point)
+                    and self.grid.elevation(point, next_point) <= CLIMB_HEIGHT
             ):
                 return False
 
@@ -142,9 +200,6 @@ class Path:
 
     @property
     def complete(self) -> bool:
-        if not self.path:
-            return False
-
         return all((
             self.valid,
             self.path[0] == self.grid.start,
@@ -152,10 +207,12 @@ class Path:
         ))
 
     def chart(self) -> dict[Point, str]:
-        chart = {}
+        """The chart of the path. Points associated with arrows pointing to the next
+        point in the path.
 
-        if not self.path:
-            return chart
+        """
+        if not self.path:  # Empty path yields empty chart
+            return {}
 
         def arrow(point: Point, next_point: Point) -> str:
             if self.grid.height(point) < 2:
@@ -167,21 +224,27 @@ class Path:
             else:
                 color = Colors.magenta
 
-            out = {
+            direction = {
                 (-1, 0): color + '↑' + Colors.default,
                 (1, 0): color + '↓' + Colors.default,
                 (0, 1): color + '→' + Colors.default,
                 (0, -1): color + '←' + Colors.default
             }
-            return out[(next_point[0] - point[0], next_point[1] - point[1])]
+            return direction[(next_point[0] - point[0], next_point[1] - point[1])]
 
-        filtered = [
+        # path without the beginning and end
+        inner_path = [
             point for point in self.path
             if point not in (self.grid.start, self.grid.end)
         ]
-        for point, next_point in zip(filtered[:-1],  filtered[1:]):
-            chart[point] = arrow(point, next_point)
 
+        # chart of inner path
+        chart = {
+            point: arrow(point, next_point)
+            for point, next_point in zip(inner_path[:-1], inner_path[1:])
+        }
+
+        # if path is not complete, end it with an 'X'
         if self.path[-1] != self.grid.end:
             chart[self.path[-1]] = Colors.cyan + 'X' + Colors.default
         else:
@@ -220,7 +283,7 @@ class Seeker:
         steps = [
             step for step in self.grid.cardinals(point)
             if step not in self.walked and
-            self.grid.elevation(point, step) <= CLIMB
+            self.grid.elevation(point, step) <= CLIMB_HEIGHT
         ]
         return min(steps, key=self.metric, default=None)
 
@@ -258,7 +321,7 @@ class Seeker:
         loopbacks = [
             point for point in self.grid.cardinals(self.path[index])
             if point in self.path[:index-1] and
-            self.grid.elevation(point, self.path[index]) <= CLIMB
+            self.grid.elevation(point, self.path[index]) <= CLIMB_HEIGHT
         ]
 
         return min(loopbacks, key=self.step_count, default=None)
