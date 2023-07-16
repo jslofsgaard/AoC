@@ -254,6 +254,13 @@ class Path:
 
 
 class Seeker:
+    """A class implementing my own bespoke path finding algorithm. It
+    is not optimal, nor does it produce the shortest path. It does,
+    however, produce a valid and complete path.
+
+    TODO: remove code for /visual/ printing of algorithm.
+
+    """
     def __init__(self, grid: Grid, visual: bool = False):
         self.grid = grid
         self.path = []
@@ -329,64 +336,23 @@ class Seeker:
     def step_count(self, point: Point) -> int:
         return self.path.index(point)
 
-
-def parse_line(line: str) -> list[int]:
-    char_height = {
-        'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7, 'i': 8,
-        'j': 9, 'k': 10, 'l': 11, 'm': 12, 'n': 13, 'o': 14, 'p': 15, 'q': 16,
-        'r': 17, 's': 18, 't': 19, 'u': 20, 'v': 21, 'w': 22, 'x': 23, 'y': 24,
-        'z': 25,
-
-        # Start at lowest height, End at highest.
-        'S': 0, 'E': 25
-    }
-    heights = []
-    for char in line.strip():
-        heights.append(char_height[char])
-
-    return heights
-
-
-def get_grid(puzzle_input: str = 'input.txt', debug: bool = False) -> Grid:
-    grid = []
-    with open(puzzle_input) as f:
-        line = f.readline()
-        while line:
-            grid.append(parse_line(line))
-
-            if line.find('S') != -1:
-                start = (len(grid) - 1, line.find('S'))
-
-            if line.find('E') != -1:
-                end = (len(grid) - 1, line.find('E'))
-
-            line = f.readline()
-
-    return Grid(grid, start, end)
-
-
 if __name__ == '__main__':
-    grid = get_grid()
-    grid.print()
+    grid = Grid.from_puzzle()
 
-    response = input('Find path to summit with Seeker algorithm? [Y/n]: ')
-    while response not in ('Y', 'y', 'N', 'n'):
-        response = input('Please answer Y[es] or [n]o: ')
+    use_seeker = input('Find path to summit with Seeker algorithm? [Y/n]: ')
+    while use_seeker not in ('Y', 'y', 'N', 'n'):
+        use_seeker = input('Please answer Y[es] or [n]o: ')
 
-    if response in ('Y', 'y'):
-        visual = input('Show the algorithm visually? [Y/n]: ')
-        while response not in ('Y', 'y', 'N', 'n'):
-            visual = input('Please answer Y[es] or [n]o: ')
+    if use_seeker in ('Y', 'y'):
+        finder = Seeker(grid)
+    else:
+        return
 
-        if visual in ('Y', 'y'):
-            finder = Seeker(grid, True)
-        else:
-            finder = Seeker(grid)
-        start = time.time()
-        path = finder.search()
-        stop = time.time()
-        print(f'Path length : {path.length}')
-        print(f'Path is valid: {path.valid}')
-        print(f'Path is complete: {path.complete}')
-        print(f'Time to find path: {stop - start}')
-        grid.print(path)
+    start = time.time()
+    path = finder.search()
+    stop = time.time()
+    print(f'Path length : {path.length}')
+    print(f'Path is valid: {path.valid}')
+    print(f'Path is complete: {path.complete}')
+    print(f'Time to find path: {stop - start}')
+    grid.print(path)
