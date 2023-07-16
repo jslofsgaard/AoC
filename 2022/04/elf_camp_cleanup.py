@@ -7,25 +7,22 @@ class Section:
         self.stop = stop
 
     def contains(self, other) -> bool:
-        if (
-                self.start <= other.start and
-                other.stop <= self.stop
-        ):
+        if self.start <= other.start and other.stop <= self.stop:
             return True
         else:
             return False
 
     def overlaps(self, other) -> bool:
-        if (    # There should be a better way to do this
-                other.start <= self.start <= other.stop or
-                other.start <= self.stop <= other.stop or
-                self.start <= other.start <= self.stop or
-                self.start <= other.stop <= self.stop
+        if (  # There should be a better way to do this
+            other.start <= self.start <= other.stop
+            or other.start <= self.stop <= other.stop
+            or self.start <= other.start <= self.stop
+            or self.start <= other.stop <= self.stop
         ):
             return True
 
     def __str__(self):
-        return f'{self.start} - {self.stop}'
+        return f"{self.start} - {self.stop}"
 
 
 class ElfPairing:
@@ -51,10 +48,7 @@ class ElfPairing:
         return self.left_section.overlaps(self.right_section)
 
     def __str__(self):
-        return (
-            'Left: ' + str(self.left_section) +
-            ', Right: ' + str(self.right_section)
-        )
+        return "Left: " + str(self.left_section) + ", Right: " + str(self.right_section)
 
 
 def parse_line(line: str) -> Union[ElfPairing, None]:
@@ -62,9 +56,9 @@ def parse_line(line: str) -> Union[ElfPairing, None]:
     None otherwise.
     """
     if line:
-        sides = line.split(',')
-        left = sides[0].split('-')
-        right = sides[1].split('-')
+        sides = line.split(",")
+        left = sides[0].split("-")
+        right = sides[1].split("-")
         return ElfPairing(
             Section(int(left[0]), int(left[1])),
             Section(int(right[0]), int(right[1])),
@@ -73,9 +67,8 @@ def parse_line(line: str) -> Union[ElfPairing, None]:
         return None
 
 
-def get_pairings(puzzle_input: str = 'input.txt') -> List[ElfPairing]:
-    """Construct a list of elf pairings from the input located at puzzle_input.
-    """
+def get_pairings(puzzle_input: str = "input.txt") -> List[ElfPairing]:
+    """Construct a list of elf pairings from the input located at puzzle_input."""
     with open(puzzle_input) as f:
         pairings = []
         pairing = parse_line(f.readline())
@@ -86,16 +79,12 @@ def get_pairings(puzzle_input: str = 'input.txt') -> List[ElfPairing]:
         return pairings
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pairings = get_pairings()
-    count_fully_contained = sum(map(
-        lambda pairing: 1 if pairing.containing_section else 0,
-        pairings
-    ))
-    count_overlaps = sum(map(
-        lambda pairing: 1 if pairing.overlap else 0,
-        pairings
-    ))
+    count_fully_contained = sum(
+        map(lambda pairing: 1 if pairing.containing_section else 0, pairings)
+    )
+    count_overlaps = sum(map(lambda pairing: 1 if pairing.overlap else 0, pairings))
 
-    print(f'Pairings with fully contained sections: {count_fully_contained}')
-    print(f'Pairings with overlaping sections: {count_overlaps}')
+    print(f"Pairings with fully contained sections: {count_fully_contained}")
+    print(f"Pairings with overlaping sections: {count_overlaps}")

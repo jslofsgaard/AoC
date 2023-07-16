@@ -33,13 +33,13 @@ from functools import reduce
 
 class Monkey:
     def __init__(
-            self,
-            items: list[int],                     # list of worry levels
-            operation: Callable[[int], int],      # inspection operation
-            worry_op: Callable[[int], int],       # worry decrease operation
-            test: Callable[[int], bool],          # test operation
-            true_monkey: int,               # monkey index to throw to if true
-            false_monkey: int               # monkey index to throw to if false
+        self,
+        items: list[int],  # list of worry levels
+        operation: Callable[[int], int],  # inspection operation
+        worry_op: Callable[[int], int],  # worry decrease operation
+        test: Callable[[int], bool],  # test operation
+        true_monkey: int,  # monkey index to throw to if true
+        false_monkey: int,  # monkey index to throw to if false
     ):
         self.items = items
         self.operation = operation
@@ -50,8 +50,7 @@ class Monkey:
         self.false_monkey = false_monkey
 
     def throw(self) -> int:
-        """Return the foremost item and remove it from this monkey's item list.
-        """
+        """Return the foremost item and remove it from this monkey's item list."""
         return self.items.pop(0)
 
     def catch(self, item) -> None:
@@ -81,14 +80,14 @@ class Monkey:
         return bool(self.items)
 
     def __str__(self):
-        return str(self.items).strip('[]')
+        return str(self.items).strip("[]")
 
 
 def get_items(itemline: str) -> list[int]:
     """Parse an item line as found it the input beginnig with: 'Starting
     items:', and return a list of items represented by their worry levels.
     """
-    return [int(item.rstrip(',')) for item in itemline.split()[2:]]
+    return [int(item.rstrip(",")) for item in itemline.split()[2:]]
 
 
 def get_operation(opline: str) -> Callable[[int], int]:
@@ -96,19 +95,19 @@ def get_operation(opline: str) -> Callable[[int], int]:
     'Operation:', and return a callable performing said operation.
     """
     opexpr = opline.split()[3:]
-    if ' '.join(opexpr) == 'old * old':
+    if " ".join(opexpr) == "old * old":
         return lambda n: n**2
 
-    if ' '.join(opexpr) == 'old + old':
-        return lambda n: n*2
+    if " ".join(opexpr) == "old + old":
+        return lambda n: n * 2
 
-    if ' '.join(opexpr[0:2]) == 'old *':
+    if " ".join(opexpr[0:2]) == "old *":
         return lambda n: n * int(opexpr[-1])
 
-    if ' '.join(opexpr[0:2]) == 'old +':
+    if " ".join(opexpr[0:2]) == "old +":
         return lambda n: n + int(opexpr[-1])
 
-    raise ValueError('get_operation could not match operation expression!')
+    raise ValueError("get_operation could not match operation expression!")
 
 
 def get_test(testline: str) -> Callable[[int], bool]:
@@ -116,10 +115,10 @@ def get_test(testline: str) -> Callable[[int], bool]:
     return a callable performing said test.
     """
     contents = testline.split()
-    if ' '.join(contents[1:3]) == 'divisible by':
+    if " ".join(contents[1:3]) == "divisible by":
         return lambda n: n % int(contents[-1]) == 0
 
-    raise ValueError('get_test could not match test expression!')
+    raise ValueError("get_test could not match test expression!")
 
 
 def get_target_monkeys(destlines: list[str]) -> tuple[int, int]:
@@ -131,8 +130,7 @@ def get_target_monkeys(destlines: list[str]) -> tuple[int, int]:
 
 
 def get_monkeys(
-        worry_op: Callable[[int], int],
-        puzzle_input: str = 'input.txt'
+    worry_op: Callable[[int], int], puzzle_input: str = "input.txt"
 ) -> list[Monkey]:
     """Parse the input at puzzle_input and return a list of Monkeys."""
     monkeys = []
@@ -140,7 +138,7 @@ def get_monkeys(
         line = f.readline()
         while line:
             lines = []
-            while line and line != '\n':
+            while line and line != "\n":
                 lines.append(line)
                 line = f.readline()
 
@@ -158,14 +156,13 @@ def get_monkeys(
     return monkeys
 
 
-def get_divisors(puzzle_input: str = 'input.txt') -> list[int]:
-    """Parse the puzzle input and return a list of divisors used for the tests.
-    """
+def get_divisors(puzzle_input: str = "input.txt") -> list[int]:
+    """Parse the puzzle input and return a list of divisors used for the tests."""
     divisors = []
     with open(puzzle_input) as f:
         line = f.readline()
         while line:
-            if line != '\n' and line.split()[0] == "Test:":
+            if line != "\n" and line.split()[0] == "Test:":
                 divisors.append(int(line.split()[-1]))
             line = f.readline()
 
@@ -183,41 +180,36 @@ def do_rounds(n: int, monkeys: list[Monkey]) -> None:
 
 def print_monkeys(monkeys: list[Monkey], print_items=False) -> None:
     sorted_monkeys = sorted(
-        monkeys,
-        key=lambda monkey: monkey.inspection_count,
-        reverse=True
+        monkeys, key=lambda monkey: monkey.inspection_count, reverse=True
     )
     for monkey in sorted_monkeys:
-        print(f'Monkey {monkeys.index(monkey)}:')
-        print(f'   Inspections: {str(monkey.inspection_count)}')
+        print(f"Monkey {monkeys.index(monkey)}:")
+        print(f"   Inspections: {str(monkey.inspection_count)}")
         if print_items:
-            print(f'   Items: {str(monkey)}')
+            print(f"   Items: {str(monkey)}")
 
 
 def print_monkeys_business(monkeys: list[Monkey]) -> None:
     sorted_monkeys = sorted(
-        monkeys,
-        key=lambda monkey: monkey.inspection_count,
-        reverse=True
+        monkeys, key=lambda monkey: monkey.inspection_count, reverse=True
     )
     monkey_business = (
-        sorted_monkeys[0].inspection_count *
-        sorted_monkeys[1].inspection_count
+        sorted_monkeys[0].inspection_count * sorted_monkeys[1].inspection_count
     )
-    print(f'Monkey business level: {monkey_business}')
+    print(f"Monkey business level: {monkey_business}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Part 1
     monkeys = get_monkeys(lambda n: n // 3)
     do_rounds(20, monkeys)
-    print('For part 1 we have:')
+    print("For part 1 we have:")
     print_monkeys(monkeys)
     print_monkeys_business(monkeys)
 
-    print('\nFor part 2 we have:')
+    print("\nFor part 2 we have:")
     clock_size = reduce(lambda x, y: x * y, get_divisors())
     monkeys = get_monkeys(lambda n: n % clock_size)
-    do_rounds(10000,  monkeys)
+    do_rounds(10000, monkeys)
     print_monkeys(monkeys)
     print_monkeys_business(monkeys)

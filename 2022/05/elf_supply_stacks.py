@@ -9,23 +9,13 @@ class SupplyStack:
     def __init__(self, stacks: list[list[str]]) -> None:
         self.stacks = stacks
 
-    def do_instruction_9000(
-            self,
-            repeat: int,
-            from_index: int,
-            to_index: int
-    ) -> None:
+    def do_instruction_9000(self, repeat: int, from_index: int, to_index: int) -> None:
         """Perform the provided instruction on the stacks in accordance with
         how the CrateMover 9000 operates."""
         for _ in range(repeat):
             self.stacks[to_index].append(self.stacks[from_index].pop())
 
-    def do_instruction_9001(
-            self,
-            count: int,
-            from_index: int,
-            to_index: int
-    ) -> None:
+    def do_instruction_9001(self, count: int, from_index: int, to_index: int) -> None:
         """Perform the provided instruction on the stacks in accordance with
         how the CrateMover 9001 operates."""
         self.stacks[to_index].extend(self.stacks[from_index][-count:])
@@ -38,12 +28,12 @@ class SupplyStack:
         If a stack has no crates in it, its posititon in the returned string is
         replaced with a string,
         """
-        top = ''
+        top = ""
         for stack in self.stacks:
             try:
                 top += stack[-1]
             except IndexError:
-                top += ' '
+                top += " "
 
         return top
 
@@ -51,27 +41,27 @@ class SupplyStack:
         """Print a drawing of the supply stacks."""
         lines = []
 
-        num_row = ''
+        num_row = ""
         num_rows = len(self.stacks)
         for i in range(num_rows):
-            num_row += ' ' + str(i + 1) + ' '
+            num_row += " " + str(i + 1) + " "
 
             if i != num_rows:
-                num_row += ' '
+                num_row += " "
 
         lines.append(num_row)
 
         tallest = max(map(lambda stack: len(stack), self.stacks))
         for i in range(tallest):
-            line = ''
+            line = ""
             for stack in self.stacks:
                 try:
-                    line += '[' + stack[i] + ']'
+                    line += "[" + stack[i] + "]"
                 except IndexError:
-                    line += '   '
+                    line += "   "
 
                 if i != tallest:
-                    line += ' '
+                    line += " "
 
             lines.append(line)
 
@@ -84,10 +74,11 @@ def parse_drawing(fd: TextIOWrapper) -> SupplyStack:
     """Parse the drawing at the beginnig of the input and return the
     corresponding SupplyStack.
     """
+
     def get_lines() -> list[str]:
         lines = []
         line = fd.readline()
-        while line != '\n':
+        while line != "\n":
             lines.append(line)
             line = fd.readline()
 
@@ -103,10 +94,7 @@ def parse_drawing(fd: TextIOWrapper) -> SupplyStack:
         """Provided a postiton in each line, return a list of crates found at
         postiton in each line.
         """
-        return [
-            line[position] for line in lines
-            if line[position].isalpha()
-        ]
+        return [line[position] for line in lines if line[position].isalpha()]
 
     lines = get_lines()
     positions = get_positions(lines.pop())
@@ -125,7 +113,7 @@ def parse_instruction(line: str) -> Instruction:
 
 
 def get_stack_and_instructions(
-        puzzle_input: str = 'input.txt'
+    puzzle_input: str = "input.txt",
 ) -> tuple[SupplyStack, list[Instruction]]:
     """Construct a supply stack and list of instructions from the input located
     at puzzle_input.
@@ -141,7 +129,7 @@ def get_stack_and_instructions(
         return stack, instructions
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     supplystack1, instructions = get_stack_and_instructions()
     supplystack2 = deepcopy(supplystack1)
     for instruction in instructions:

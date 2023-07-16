@@ -39,10 +39,10 @@ def get_message_index(data: str, fd: TextIOWrapper) -> int:
     return 1 + get_message_index(data + fd.read(1), fd)
 
 
-if __name__ == '__main__':
-    with open('input.txt') as f:
-        start_packet = get_marker_index('', f)
+if __name__ == "__main__":
+    with open("input.txt") as f:
+        start_packet = get_marker_index("", f)
         f.seek(0)
-        start_message = get_message_index('', f)
-        print(f'The start of packet marker begins at: {start_packet}')
-        print(f'The start of message marker begins at: {start_message}')
+        start_message = get_message_index("", f)
+        print(f"The start of packet marker begins at: {start_packet}")
+        print(f"The start of message marker begins at: {start_message}")

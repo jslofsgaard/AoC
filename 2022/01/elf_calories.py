@@ -20,9 +20,8 @@ def parse_line(line: str) -> Union[int, None]:
         return None
 
 
-def get_calorie_lists(puzzle_input: str = 'input.txt') -> List[CalorieList]:
-    """Construct a list of CalorieLists from the input located at puzzle_input.
-    """
+def get_calorie_lists(puzzle_input: str = "input.txt") -> List[CalorieList]:
+    """Construct a list of CalorieLists from the input located at puzzle_input."""
     with open(puzzle_input) as f:
         items = []
         line = f.readline()
@@ -39,22 +38,19 @@ def get_calorie_lists(puzzle_input: str = 'input.txt') -> List[CalorieList]:
         return items
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     calorie_lists = sorted(
-            get_calorie_lists(),
-            key=lambda calorie_list: calorie_list.total,
-            reverse=True
+        get_calorie_lists(), key=lambda calorie_list: calorie_list.total, reverse=True
     )
-    top_three_total = sum(map(
-            lambda calorie_list: calorie_list.total,
-            calorie_lists[0:3]
-    ))
+    top_three_total = sum(
+        map(lambda calorie_list: calorie_list.total, calorie_lists[0:3])
+    )
 
-    print(f'Max: {calorie_lists[0].total}')
+    print(f"Max: {calorie_lists[0].total}")
     print(
-        'Top three: '
-        f'{calorie_lists[0].total}, '
-        f'{calorie_lists[1].total}, '
-        f'{calorie_lists[2].total}'
+        "Top three: "
+        f"{calorie_lists[0].total}, "
+        f"{calorie_lists[1].total}, "
+        f"{calorie_lists[2].total}"
     )
-    print(f'Top three total: {top_three_total}')
+    print(f"Top three total: {top_three_total}")
