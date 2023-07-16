@@ -113,12 +113,12 @@ if __name__ == "__main__":
     print(
         (
             "For a 2 knot rope we have that:\n"
-            f"   The final position of the head is: {str(rope.head)}\n"
-            f"   The final position of the tail is: {str(rope.tail)}\n"
+            f"   The final position of the head is: {rope.head}\n"
+            f"   The final position of the tail is: {rope.tail}\n"
             f"   Number of unique head positions reached: "
-            f"{str(len(rope.unique_head_positions))}\n"
+            f"{len(rope.unique_head_positions)}\n"
             f"   Number of unique tail positions reached: "
-            f"{str(len(rope.unique_tail_positions))}\n"
+            f"{len(rope.unique_tail_positions)}\n"
         )
     )
 
@@ -130,12 +130,12 @@ if __name__ == "__main__":
     print(
         (
             "For a 10 knot rope we have that:\n"
-            f"   The final position of the head is: {str(rope.head)}\n"
-            f"   The final position of the tail is: {str(rope.tail)}\n"
+            f"   The final position of the head is: {rope.head}\n"
+            f"   The final position of the tail is: {rope.tail}\n"
             f"   Number of unique head positions reached: "
-            f"{str(len(rope.unique_head_positions))}\n"
+            f"{len(rope.unique_head_positions)}\n"
             f"   Number of unique tail positions reached: "
-            f"{str(len(rope.unique_tail_positions))}\n"
+            f"{len(rope.unique_tail_positions)}\n"
         )
     )
 
@@ -147,11 +147,11 @@ if __name__ == "__main__":
     print(
         (
             "For a 100 knot rope we have that:\n"
-            f"   The final position of the head is: {str(rope.head)}\n"
-            f"   The final position of the tail is: {str(rope.tail)}\n"
+            f"   The final position of the head is: {rope.head}\n"
+            f"   The final position of the tail is: {rope.tail}\n"
             f"   Number of unique head positions reached: "
-            f"{str(len(rope.unique_head_positions))}\n"
+            f"{len(rope.unique_head_positions)}\n"
             f"   Number of unique tail positions reached: "
-            f"{str(len(rope.unique_tail_positions))}\n"
+            f"{len(rope.unique_tail_positions)}\n"
         )
     )

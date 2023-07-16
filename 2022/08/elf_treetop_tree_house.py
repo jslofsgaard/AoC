@@ -29,10 +29,10 @@ class Tree:
 
     def __str__(self):
         return (
-            f"Tree at: {str(self.position)}\n"
-            f"   Height: {str(self.height)}\n"
-            f"   Visible: {str(self.visible)}\n"
-            f"   Scenic score: {str(self.scenic_score)}"
+            f"Tree at: {self.position}\n"
+            f"   Height: {self.height}\n"
+            f"   Visible: {self.visible}\n"
+            f"   Scenic score: {self.scenic_score}"
         )
 
     def get_tallest_neighbour_heights(self) -> tuple[int, int, int, int]:
@@ -151,7 +151,7 @@ class TreeGrid:
 
     def print_grid(self):
         for tree in self.tree_map.values():
-            print(str(tree))
+            print(tree)
 
 
 def get_trees(puzzle_input: str = "input.txt") -> TreeGrid:
@@ -178,15 +178,15 @@ if __name__ == "__main__":
     grid = get_trees()
     print(
         (
-            f"The grid contains: {str(grid.total_trees)} trees.\n"
-            f"The number of visible trees is: {str(grid.visible_trees)}.\n"
-            f"The number of invisible trees is: {str(grid.invisible_trees)}.\n"
+            f"The grid contains: {grid.total_trees} trees.\n"
+            f"The number of visible trees is: {grid.visible_trees}.\n"
+            f"The number of invisible trees is: {grid.invisible_trees}.\n"
             "The highest scenic score is: "
-            f"{str(grid.highest_scenic_score.scenic_score)}."
+            f"{grid.highest_scenic_score.scenic_score}."
         )
     )
 
     print(
         "The tree with the highest scenic score is:\n"
-        f"{str(grid.highest_scenic_score)}"
+        f"{grid.highest_scenic_score}"
     )

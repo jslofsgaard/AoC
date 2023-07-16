@@ -184,9 +184,9 @@ def print_monkeys(monkeys: list[Monkey], print_items=False) -> None:
     )
     for monkey in sorted_monkeys:
         print(f"Monkey {monkeys.index(monkey)}:")
-        print(f"   Inspections: {str(monkey.inspection_count)}")
+        print(f"   Inspections: {monkey.inspection_count}")
         if print_items:
-            print(f"   Items: {str(monkey)}")
+            print(f"   Items: {monkey}")
 
 
 def print_monkeys_business(monkeys: list[Monkey]) -> None:

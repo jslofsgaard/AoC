@@ -13,7 +13,7 @@ class File:
         self.size = int(size)
 
     def __str__(self):
-        return f"- {str(self.name)}: {self.size}"
+        return f"- {self.name}: {self.size}"
 
 
 class Directory:
@@ -49,7 +49,7 @@ class Directory:
         return path
 
     def __str__(self):
-        return f"d {str(self.name)}: {str(self.size)}"
+        return f"d {self.name}: {self.size}"
 
     def get_child(self, name: str) -> "Directory":
         """Return the subdirectory with the provided name if it exists."""
@@ -74,10 +74,10 @@ class Directory:
         """
         print(f"{self.path}:")
         for child in self.children:
-            print(str(child))
+            print(child)
 
         for file in self.files:
-            print(str(file))
+            print(file)
 
         if R:
             print()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     small_dirs = find_subdirectories(lambda d: d.size < 100000, root)
     print(
         (
-            f"There are {str(len(small_dirs))} directories "
+            f"There are {len(small_dirs)} directories "
             "with size less than 100000.\n"
             f"Their total size is: {sum(map(lambda d: d.size, small_dirs))}."
         )
