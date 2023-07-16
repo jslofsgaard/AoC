@@ -57,7 +57,7 @@ class Grid:
     """
     def __init__(
             self,
-            grid: list[list[int]],
+            grid: Iterator[Iterator[int]],
             start: Point,
             end: Point,
     ):
@@ -110,7 +110,6 @@ class Grid:
 
         return Grid(grid, start, end)
 
-
     @property
     def nrow(self) -> int:
         return len(self.grid)
@@ -153,16 +152,19 @@ class Grid:
             if point in self.points
         ]
 
-    def print(self, *paths: 'Path') -> None:
-        """Print the string representation of the grid with each path layered on top
-        successively.
+    def print(self, *points: Point) -> None:
+        """Print the string representation of the grid with each point
+        marked explicitly with an 'X'.
 
         """
         grid = self._char_grid()
 
-        for path in paths:
-            for point, sym in path.chart().items():
-                grid[point[0]][point[1]] = sym
+        for point in points:
+            grid[point[0]][point[1]] = (
+                Colors.cyan
+                + grid[point[0]][point[1]]
+                + Colors.default
+            )
 
         print('+' + ''.join(['-' for _ in range(self.ncol)]) + '+')
 
@@ -178,13 +180,13 @@ class Path:
     method for 'charting' a path.
 
     """
-    def __init__(self, grid: Grid, path: list[Point]):
+    def __init__(self, grid: Grid, path: Iterator[Point]):
         self.grid = grid
         self.path = tuple(path)
 
     @property
     def length(self) -> int:
-        return len(self.path) - 1  # Start is not considered a part of the path lenght!
+        return len(self.path) - 1  # Start is not considered a part of the path length!
 
     @property
     def valid(self) -> bool:
@@ -240,6 +242,9 @@ class Path:
             if point not in (self.grid.start, self.grid.end)
         ]
 
+        if not inner_path:  # Empty inner path, in case path contains only start and/or end
+            return {}
+
         # chart of inner path
         chart = {
             point: arrow(point, next_point)
@@ -254,13 +259,30 @@ class Path:
 
         return chart
 
+    def print(self) -> None:
+        """Print the string representation of the path layered ontop
+        of its grid.
+
+        """
+        grid = self.grid._char_grid()
+
+        for point, sym in self.chart().items():
+            grid[point[0]][point[1]] = sym
+
+        print('+' + ''.join(['-' for _ in range(self.grid.ncol)]) + '+')
+
+        for row in grid:
+            print('|' + ''.join(row) + '|')
+
+        print('+' + ''.join(['-' for _ in range(self.grid.ncol)]) + '+')
+
 
 class Seeker:
     """A class implementing my own bespoke path finding algorithm. It
     is not optimal, nor does it produce the shortest path. It does,
     however, produce a valid and complete path.
 
-    TODO: remove code for /visual/ printing of algorithm.
+    TODO: cleanup all the code
 
     """
     def __init__(self, grid: Grid, visual: bool = False):
