@@ -2,7 +2,7 @@ import itertools
 import math
 import time
 from dataclasses import dataclass
-from typing import Optional, Self
+from typing import Iterator, Optional, Self
 
 Point = tuple[int, int]
 
@@ -361,6 +361,9 @@ class Seeker:
         return self.path.index(point)
 
 
+class DijkstraEmptyPointsError(Exception):
+    pass
+
 @dataclass
 class DijkstraNode:
     distance: float  = math.inf
@@ -372,47 +375,107 @@ class Dijkstra:
     def __init__(self, grid: Grid):
         self.grid = grid
 
-    def search(self) -> Path:
-        nodes = {
-            point: DijkstraNode() for point in self.grid.points
-        }
-        nodes[self.grid.start].distance = 0.0
+    def _unvisited_points(self) -> Iterator[Point]:
+        return (
+            point for point in self.grid.points
+            if self.nodes[point].visited == False
+        )
 
-        def update_distance(neighbour: Point) -> None:
-            if (
-                    self.grid.elevation(current, neighbour) <= CLIMB_HEIGHT
-                    and nodes[neighbour].distance > nodes[current].distance + 1
-            ):
-                nodes[neighbour].distance = nodes[current].distance + 1
-                nodes[neighbour].previous = current
+    def _visited_points(self) -> Iterator[Point]:
+        return (
+            point for point in self.grid.points
+            if self.nodes[point].visited == True
+        )
 
-        while nodes[self.grid.end].visited == False:
-            current = min(
-                (point for point in self.grid.points if nodes[point].visited == False),
-                key=lambda point: nodes[point].distance
+    def _closest_point(self, points: Iterator[Point]) -> int:
+        try:
+            return min(
+                points,
+                key=lambda point: self.nodes[point].distance
             )
-            for neighbour in self.unvisited_neighbours(current, nodes):
-                update_distance(neighbour)
+        except ValueError:
+            raise DijkstraEmptyPointsError()
 
-            nodes[current].visited = True
-
-
-        return Path(self.grid, self.backtrack_path(current, nodes))
-
-    def unvisited_neighbours(self, point: Point, nodes: dict[DijkstraNode]) -> list[Point]:
-        return [
+    def _unvisited_neighbours(self, point: Point) -> Iterator[Point]:
+        return (
             neighbour for neighbour in self.grid.cardinals(point)
-            if nodes[neighbour].visited == False
-        ]
+            if self.nodes[neighbour].visited == False
+        )
 
-    def backtrack_path(self, point: Point, nodes: dict[DijkstraNode]) -> list[Point]:
+    def _backtrack_path(self, point: Point, reverse=False) -> list[Point]:
         path = []
         while point is not None:
             path.append(point)
-            point = nodes[point].previous
+            point = self.nodes[point].previous
 
-        return reversed(path)
+        if reverse:
+            return reversed(path)
+        else:
+            return path
 
+    def search(self) -> Path:
+        self.nodes = {
+            point: DijkstraNode() for point in self.grid.points
+        }
+        self.nodes[self.grid.start].distance = 0.0
+
+        def update_distance(neighbour: Point) -> None:
+            if (
+                    # you can drop down as far as you want!
+                    self.grid.elevation(current, neighbour) <= CLIMB_HEIGHT
+                    and self.nodes[neighbour].distance > self.nodes[current].distance + 1
+            ):
+                self.nodes[neighbour].distance = self.nodes[current].distance + 1
+                self.nodes[neighbour].previous = current
+
+        while (
+                self.nodes[self.grid.end].visited == False
+                and self.nodes[self._closest_point(self._unvisited_points())].distance != math.inf
+        ):
+            current = self._closest_point(self._unvisited_points())
+            for neighbour in self._unvisited_neighbours(current):
+                update_distance(neighbour)
+
+            self.nodes[current].visited = True
+
+        return Path(self.grid, self._backtrack_path(current, reverse=True))
+
+    def reverse_search(self) -> Path:
+        self.nodes = {
+            point: DijkstraNode() for point in self.grid.points
+        }
+        self.nodes[self.grid.end].distance = 0.0
+
+        def update_distance(neighbour: Point) -> None:
+            if (
+                    self.grid.elevation(neighbour, current) <= CLIMB_HEIGHT
+                    and self.nodes[neighbour].distance > self.nodes[current].distance + 1
+            ):
+                self.nodes[neighbour].distance = self.nodes[current].distance + 1
+                self.nodes[neighbour].previous = current
+
+        while self.nodes[self._closest_point(self._unvisited_points())].distance != math.inf:
+            current = self._closest_point(self._unvisited_points())
+            for neighbour in self._unvisited_neighbours(current):
+                update_distance(neighbour)
+
+            self.nodes[current].visited = True
+
+        start = self._closest_point(
+            (point for point in self.grid.points if self.grid.height(point) == 0)
+        )
+        return Path(
+            Grid(self.grid.grid, start, self.grid.end),
+            self._backtrack_path(start)
+        )
+
+
+def ask(prompt) -> bool:
+    ret = input(prompt + ' [Y/n]: ')
+    while ret not in ('Y', 'y', 'N', 'n'):
+        ret = input('Please answer Y[es] or [n]o: ')
+
+    return True if ret.lower() == 'y' else False
 
 if __name__ == '__main__':
 
@@ -426,18 +489,17 @@ if __name__ == '__main__':
         print(f'Path is valid: {path.valid}')
         print(f'Path is complete: {path.complete}')
         print(f'Time to find path: {stop - start}')
-        grid.print(path)
+        path.print()
 
-    use_seeker = input('Find path to summit with Seeker algorithm? [Y/n]: ')
-    while use_seeker not in ('Y', 'y', 'N', 'n'):
-        use_seeker = input('Please answer Y[es] or [n]o: ')
+    use_seeker = ask('Find path to summit with Seeker algorithm?')
+    use_dijkstra = ask('Find path to summit with Dijkstra algorithm?')
+    use_dijkstra_all = ask('Find best starting position with Dijkstra algorithm?')
 
-    if use_seeker in ('Y', 'y'):
+    if use_seeker:
         run(Seeker(grid).search)
 
-    use_dijkstra = input('Find path to summit with Dijkstra algorithm? [Y/n]: ')
-    while use_dijkstra not in ('Y', 'y', 'N', 'n'):
-        use_dijkstra = input('Please answer Y[es] or [n]o: ')
-
-    if use_dijkstra in ('Y', 'y'):
+    if use_dijkstra:
         run(Dijkstra(grid).search)
+
+    if use_dijkstra_all:
+        run(Dijkstra(grid).reverse_search)
