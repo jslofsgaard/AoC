@@ -38,7 +38,7 @@ class Path:
 
         return True
 
-    @property
+    @cached_property
     def coordinates(self) -> Iterable[Coordinate]:
         """All the coordinates connecting the edges of the path."""
 
@@ -89,11 +89,13 @@ class Cave:
         source: Coordinate = (500, 0),
         rock_paths: Iterable[Path] = (),
         sand_coordinates: Iterable[Coordinate] = (),
+        has_floor: bool = False,
         padding: int = 1,
     ):
         self.source_coordinate = source
         self.sand_coordinates = tuple(sand_coordinates)
         self.rock_paths = tuple(rock_paths)
+        self.has_floor = has_floor
         self.padding = padding
 
     def __repr__(self) -> str:
@@ -104,6 +106,7 @@ class Cave:
                     f"source={self.source_coordinate},",
                     f"rock_paths={self.rock_paths},",
                     f"sand_coordinates={self.sand_coordinates},",
+                    f"has_floor={self.has_floor}",
                     f"padding={self.padding},",
                 )
             )
@@ -127,6 +130,15 @@ class Cave:
         for x, y in self.sand_coordinates:
             array[y - min_y][x - min_x] = Entity.sand
 
+        # add floor?
+        if self.has_floor:
+            if max_y == max(
+                y for x, y in self.rock_coordinates
+            ):  # nothing below lowest rock
+                array.append([Entity.air for _ in range(ncol)])
+
+            array.append([Entity.rock for _ in range(ncol)])
+
         # apply padding to it
         col_pad = [Entity.air for _ in range(self.padding)]
         row_pad = [
@@ -147,18 +159,24 @@ class Cave:
 
     def __contains__(self, coordinate: Coordinate) -> bool:
         """A cave contains a pair of coordinates if they do not designate a position
-        above its roof.
+        above its roof nor below its floor.
 
         """
         x, y = coordinate
         min_x, max_x = self.x_range
         min_y, max_y = self.y_range
-        return min_y <= y
+        if not self.has_floor:
+            return min_y <= y
+        else:
+            return min_y <= y <= self.floor_level
 
     def __getitem__(self, coordinate: Coordinate) -> Entity:
         x, y = coordinate
         if (x, y) not in self:
             raise CaveOutOfBoundsError()
+
+        if y == self.floor_level:
+            return Entity.rock
 
         return self.grid[x, y]
 
@@ -169,22 +187,29 @@ class Cave:
     @cached_property
     def x_range(self) -> tuple[Coordinate]:
         """The horisontal range of coordinates in which there is something besides air."""
-        coords = (
+        crds = (
             list(self.rock_coordinates)
             + [self.source_coordinate]
             + list(self.sand_coordinates)
         )
-        return min(x for x, y in coords), max(x for x, y in coords)
+        return min(x for x, y in crds), max(x for x, y in crds)
 
     @cached_property
     def y_range(self) -> tuple[Coordinate]:
         """The vertical range of coordinates in which there is something besides air."""
-        coords = (
+        crds = (
             list(self.rock_coordinates)
             + [self.source_coordinate]
             + list(self.sand_coordinates)
         )
-        return min(y for x, y in coords), max(y for x, y in coords)
+        return min(y for x, y in crds), max(y for x, y in crds)
+
+    @cached_property
+    def floor_level(self) -> int | None:
+        if not self.has_floor:
+            return None
+
+        return max(y for x, y in self.rock_coordinates) + 2
 
     @cached_property
     def grid(self) -> DefaultDict[Coordinate, Entity]:
@@ -206,29 +231,22 @@ class Cave:
     def nsand(self) -> int:
         return len(self.sand_coordinates)
 
-    @cached_property
-    def has_source(self) -> bool:
-        for x, y in self.grid:
-            if self[x, y] == Entity.source:
-                return True
-
-        return False
-
-    @cached_property
-    def is_full(self) -> bool:
-        return True if self.simulate() == (None, None) else False
-
     def simulate(self) -> Coordinate | None:
         """Simulate a grain of sand falling from the source, return
-        the coordinates it will land on or return None if the grain
-        falls out of the cave.
+        the coordinates it will land on.
+
+        If the cave has no floor and the grain will continue to fall forever, return
+        None.
+
+        If it does have a floor, this method will always return a coordinate. Eventually
+        returning the coordinate of the source once the cave is filled with sand.
 
         """
         _, max_y = self.y_range
 
         def step(x, y) -> Coordinate | None:
             # fallen off?
-            if max_y < y:
+            if not self.has_floor and max_y < y:
                 return None
 
             # down one step
@@ -261,6 +279,16 @@ class Cave:
             self.source_coordinate,
             self.rock_paths,
             list(self.sand_coordinates) + [(x, y)],
+            self.has_floor,
+            self.padding,
+        )
+
+    def add_floor(self) -> Self:
+        return Cave(
+            self.source_coordinate,
+            self.rock_paths,
+            self.sand_coordinates,
+            True,
             self.padding,
         )
 
@@ -268,10 +296,21 @@ class Cave:
 if __name__ == "__main__":
     # Part 1
     cave = Cave(rock_paths=parse_input())
-    coords = cave.simulate()
-    while coords is not None:
-        cave = cave.add_sand(*coords)
-        coords = cave.simulate()
+    crd = cave.simulate()
+    while crd is not None:
+        cave = cave.add_sand(*crd)
+        crd = cave.simulate()
 
     print(cave)
-    print(f"Grains of sand in filled up cave: {cave.nsand}")
+    print(f"Grains of sand in floor less cave: {cave.nsand}")
+
+    # Part 2
+    cave = cave.add_floor()
+    crd = cave.simulate()
+    while crd != cave.source_coordinate:
+        cave = cave.add_sand(*crd)
+        crd = cave.simulate()
+
+    cave = cave.add_sand(*cave.source_coordinate)
+    print(cave)
+    print(f"Grains of sand in floored cave: {cave.nsand}")
