@@ -185,7 +185,7 @@ class Cave:
         return tuple(chain.from_iterable(path.coordinates for path in self.rock_paths))
 
     @cached_property
-    def x_range(self) -> tuple[Coordinate]:
+    def x_range(self) -> Coordinate:
         """The horisontal range of coordinates in which there is something besides air."""
         crds = (
             list(self.rock_coordinates)
@@ -195,7 +195,7 @@ class Cave:
         return min(x for x, y in crds), max(x for x, y in crds)
 
     @cached_property
-    def y_range(self) -> tuple[Coordinate]:
+    def y_range(self) -> Coordinate:
         """The vertical range of coordinates in which there is something besides air."""
         crds = (
             list(self.rock_coordinates)
