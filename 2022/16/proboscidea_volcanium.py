@@ -1,5 +1,8 @@
+import itertools
+import math
 from functools import cache
-from typing import Iterable
+from typing import Iterable, Iterator
+
 
 def parse_input(path="input.txt") -> list["Valve"]:
     valves = []
@@ -8,9 +11,11 @@ def parse_input(path="input.txt") -> list["Valve"]:
         while line:
             contents = line.split()
             location = contents[1]
-            flow_rate = int(contents[4].partition('=')[-1][:-1])
-            neighbours = [location.removesuffix(',') for location in contents[9:]]
-            valves.append(Valve(location=location, flow_rate=flow_rate, neighbours=neighbours))
+            flow_rate = int(contents[4].partition("=")[-1][:-1])
+            neighbours = [location.removesuffix(",") for location in contents[9:]]
+            valves.append(
+                Valve(location=location, flow_rate=flow_rate, neighbours=neighbours)
+            )
             line = fp.readline()
 
     return valves
@@ -24,6 +29,10 @@ class Valve:
 
     def __repr__(self) -> str:
         return f"Valve({self.location}, {self.flow_rate}, {self.neighbours})"
+
+
+# A path record is a mapping of valves to how long the valve was open for
+PathRecord = dict[Valve, int]
 
 
 class TunnelNetworkError(Exception):
@@ -45,33 +54,123 @@ class TunnelNetwork:
         else:
             raise TunnelNetworkError(f"No valve having location: {location}")
 
-    def optimal_release(self, total_time: int) -> int:
+    @property
+    def start(self) -> Valve:
+        return self.by_location("AA")
 
-        @cache
-        def descend(remaning_time: int, location: Valve, open_valves: tuple[Valve, ...]) -> int:
-            assert remaning_time >= 0
+    @cache
+    def dijkstra(
+        self, start: Valve, target: Valve, *, steps: bool = False
+    ) -> int | list[Valve]:
+        nodes = {
+            valve: {"distance": math.inf, "visited": False, "prior": None}
+            for valve in self.valves
+        }
+        nodes[start]["distance"] = 0
 
-            if remaning_time == 0:
-                return 0
+        def unvisited_nodes():
+            return (node for node in nodes if nodes[node]["visited"] == False)
 
-            options = []
-            release = sum(valve.flow_rate for valve in open_valves)
+        def unvisited_neighbours(node):
+            return filter(
+                lambda node: nodes[node]["visited"] == False,
+                (self.by_location(location) for location in node.neighbours),
+            )
 
-            # Open the current valve
-            if location not in open_valves and location.flow_rate > 0:
-                options.append(release + descend(remaning_time - 1, location, open_valves + (location,)))
+        def closest_node(selection):
+            return min(
+                (node for node in selection), key=lambda node: nodes[node]["distance"]
+            )
 
-            # Move to a neighbour
-            for other in location.neighbours:
-                options.append(release + descend(remaning_time - 1, self.by_location(other), open_valves))
+        while (
+            nodes[target]["visited"] == False
+            and nodes[closest_node(unvisited_nodes())]["distance"] != math.inf
+        ):
+            current = closest_node(unvisited_nodes())
+            for neighbour in unvisited_neighbours(current):
+                if nodes[neighbour]["distance"] > nodes[current]["distance"] + 1:
+                    nodes[neighbour]["distance"] = nodes[current]["distance"] + 1
+                    nodes[neighbour]["prior"] = current
 
-            return max(options, default=release)
+            nodes[current]["visited"] = True
 
-        return descend(total_time, self.by_location("AA"), ())
+        if nodes[target]["visited"] == False:
+            raise Exception(f"Unable to find a path from {start} to {target}")
 
-        
+        if not steps:
+            return nodes[current]["distance"]
+
+        def path(node):
+            steps = []
+            while node is not None:
+                steps.append(node)
+                node = nodes[node]["prior"]
+
+            return reversed(steps)
+
+        return list(path(current))
+
+    @property
+    def usefull_valves(self) -> Iterable[Valve]:
+        return (valve for valve in self.valves if valve.flow_rate > 0)
+
+    def paths(
+        self, start: Valve, target: Valve, remaning_time: int, *, reached=()
+    ) -> Iterator[PathRecord]:
+        open_time = self.dijkstra(target, start) + 1
+        if remaning_time <= open_time:
+            return
+
+        yield {target: remaning_time, start: remaning_time - open_time}
+
+        visited = reached + (start,)
+        potential_stops = [
+            valve for valve in self.usefull_valves if valve not in visited
+        ]
+        time_to_open = {
+            valve: self.dijkstra(valve, start) + 1 for valve in potential_stops
+        }
+        reachable_stops = (
+            valve
+            for valve in potential_stops
+            if time_to_open[valve] + self.dijkstra(target, valve) <= remaning_time
+        )
+        for valve in reachable_stops:
+            available_time = remaning_time - time_to_open[valve]
+            for path_record in self.paths(
+                valve,
+                target,
+                available_time,
+                reached=visited,
+            ):
+                for item in path_record:
+                    path_record[item] += time_to_open[valve]
+
+                path_record[start] = path_record[valve] - time_to_open[valve]
+                yield path_record
+
+
+def score(path_record: PathRecord) -> int:
+    return sum(valve.flow_rate * path_record[valve] for valve in path_record)
+
+
+def aggregate(*path_records: PathRecord) -> PathRecord:
+    accum = {}
+    for precord in path_records:
+        for valve in precord:
+            if accum.get(valve, 0) < precord[valve]:
+                accum[valve] = precord[valve]
+
+    return accum
+
+
 if __name__ == "__main__":
     # Part 1
     network = TunnelNetwork(parse_input())
-    optimal_release = network.optimal_release(30)
-    print(f"The most pressure possible to release during 30 minuttes is: {optimal_release}")
+    optimal_release = max(
+        max(score(precord) for precord in network.paths(valve, network.start, 30))
+        for valve in network.usefull_valves
+    )
+    print(
+        f"The most pressure possible to release during 30 minuttes is: {optimal_release}"
+    )
