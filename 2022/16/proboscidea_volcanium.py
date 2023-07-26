@@ -1,6 +1,6 @@
-import itertools
 import math
 from functools import cache
+from itertools import chain, product
 from typing import Iterable, Iterator
 
 
@@ -167,10 +167,27 @@ def aggregate(*path_records: PathRecord) -> PathRecord:
 if __name__ == "__main__":
     # Part 1
     network = TunnelNetwork(parse_input())
-    optimal_release = max(
-        max(score(precord) for precord in network.paths(valve, network.start, 30))
-        for valve in network.usefull_valves
+
+    def precords(time):
+        return chain.from_iterable(
+            network.paths(valve, network.start, time)
+            for valve in network.usefull_valves
+        )
+
+    optimal_release = max(score(precord) for precord in precords(30))
+    print(
+        f"The most pressure possible to release during 30 minutes is: {optimal_release}"
+    )
+
+    # Part 2
+    most_efficient_1 = max(score(precord) for precord in precords(26))
+    options_1 = [
+        precord for precord in precords(26) if score(precord) == most_efficient_1
+    ]
+    optimal_release_2 = max(
+        score(aggregate(*pair_precord))
+        for pair_precord in product(options_1, precords(26))
     )
     print(
-        f"The most pressure possible to release during 30 minuttes is: {optimal_release}"
+        f"The most pressure you and the elephant can release during 26 minutes is: {optimal_release_2}"
     )
