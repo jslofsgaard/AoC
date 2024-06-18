@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict
 from functools import cache
 from itertools import product
@@ -122,6 +123,7 @@ class Chamber:
         self.width = width
         self.height = 0
         self.rows = defaultdict(set)
+        self.nrocks = 0
 
     def __repr__(self) -> str:
         return f"Chamber({self.width})"
@@ -131,10 +133,10 @@ class Chamber:
             if (x, y) in self:
                 return "#"
 
-            elif y in (-1, 7) and x != -1:
+            elif y in (-1, self.width) and x != -1:
                 return "|"
 
-            elif y in (-1, 7) and x == -1:
+            elif y in (-1, self.width) and x == -1:
                 return "+"
 
             elif x == -1:
@@ -146,7 +148,7 @@ class Chamber:
             "".join([select_char(x, y) for y in range(-1, self.width + 1)])
             for x in reversed(range(-1, self.height + 2))
         ])
-        return f"total: {len(self.rows)}, width: {self.width}\n{drawing}"
+        return f"rocks: {self.nrocks}, width: {self.width}\n{drawing}"
 
     def __contains__(self, position: Position) -> bool:
         x, y = position
@@ -162,10 +164,10 @@ class Chamber:
             elif (x, y) in falling:
                 return "@"
 
-            elif y in (-1, 7) and x != -1:
+            elif y in (-1, self.width) and x != -1:
                 return "|"
 
-            elif y in (-1, 7) and x == -1:
+            elif y in (-1, self.width) and x == -1:
                 return "+"
 
             elif x == -1:
@@ -173,13 +175,13 @@ class Chamber:
 
             return "."
 
-        height = max(self.height, *[x for (x, _) in falling])
+        height = max(self.height, max([x for (x, _) in falling], default=0))
         drawing = "\n".join([
             "".join([select_char(x, y) for y in range(-1, self.width + 1)])
             for x in reversed(range(-1, height + 2))
         ])
         return drawing
-        
+
     def starting_position(self) -> Position:
         """The next position where a rock will appear."""
 
@@ -194,6 +196,7 @@ class Chamber:
             self.rows[x].add(y)
 
         self.height = max(self.height, *[x + 1 for (x,y) in positions])
+        self.nrocks += 1
 
 
 class Simulation:
@@ -203,24 +206,34 @@ class Simulation:
         self.chamber = Chamber(chamber_width)
         self.rocks = rocks()
         self.jets = jets
+        self.jet_iterations = 0
 
-    def _next_rock(self, do_print: bool = False) -> None:
+    def _next_jet(self) -> JetDirection:
+        self.jet_iterations += 1
+        return next(self.jets)
+
+    def _next_rock(self, max_jets: int = math.inf, do_print: bool = False) -> tuple[Rock, Position] | None:
         """Simulate a rock falling in the chamber.
 
-        Adds a rock to the chamber determining where it will come to
-        rest as it falls down from the current starting position of
-        the chamber blown by the next sequence of jets.
+        Adds the rock to the chamber if there are enough jet iterations left to determine
+        where the rock will come to rest in the chamber. In which case, this method
+        returns nothing. If there are not enought jet iterations left, the currently
+        falling rock along with its position is returned.
         """
         rock = next(self.rocks)
 
         x0, y0 = self.chamber.starting_position()
         if do_print:
-            print(f"Start {x0, y0} next rock:\n{self.draw(rock, (x0, y0))}")
+            print(f"Start {x0, y0} next rock:\n{self.draw((rock, (x0, y0)))}")
 
-        x, y = self._move_rock(rock, next(self.jets), (x0, y0), do_print)
+        x, y = self._move_rock(rock, self._next_jet(), (x0, y0), do_print)
         while x - x0 != 0:
+
+            if self.jet_iterations >= max_jets:
+                return rock, (x, y)
+
             x0, y0 = x, y
-            x, y = self._move_rock(rock, next(self.jets), (x0, y0), do_print)
+            x, y = self._move_rock(rock, self._next_jet(), (x0, y0), do_print)
 
         self.chamber.add_rock((x, y), rock)
 
@@ -231,13 +244,16 @@ class Simulation:
             """A rock can be shifted to the left or right by a jet of gas."""
             dy = -1 if jet == JetDirection.LEFT else 1
             next_positions = rock.positions(x, y + dy)
-            if any(p in self.chamber for p in next_positions) or any(y in (-1, 7) for (_, y) in next_positions):
+            if (
+                    any(p in self.chamber for p in next_positions)
+                    or any(y in (-1, self.chamber.width) for (_, y) in next_positions)
+            ):
                 result = x, y
             else:
                 result = x, y + dy
 
             if do_print:
-                print(f"Move jet {jet.name} {result}:\n{self.draw(rock, result)}")
+                print(f"Move jet {jet.name} {result}:\n{self.draw((rock, result))}")
 
             return result
 
@@ -251,43 +267,67 @@ class Simulation:
                 result = x + dx, y
 
             if do_print:
-                print(f"Move gravity {result}:\n{self.draw(rock, result)}")
+                print(f"Move gravity {result}:\n{self.draw((rock, result))}")
 
             return result
 
         x0, y0 = current
         return apply_gravity(*apply_jet(x0, y0))
 
-    def draw(self, rock: Rock = None, position: Position = None) -> str:
+    def draw(self, falling: tuple[Rock, Position]) -> str:
         """Print the chamber, along with the falling ROCK at POSITION if any."""
-        if not rock or not position:
+        if not falling:
             return self.chamber.draw_falling()
 
+        rock, position = falling
         return self.chamber.draw_falling(rock.positions(*position))
 
     def run(self, nrocks: int, do_print: bool = False) -> Chamber:
         """Run simulation untill NROCKS have been added."""
         for _ in range(nrocks):
-            self._next_rock(do_print)
+            self._next_rock(do_print=do_print)
 
         return self.chamber
+
+    def run2(self, njets: int, do_print: bool = False) -> tuple[Chamber, str]:
+        """Run simulation untill NJETS have been consumed."""
+        while self.jet_iterations < njets:
+            falling = self._next_rock(njets, do_print=do_print)
+
+        return self.chamber, self.draw(falling)
 
     def search_plateau(self) -> Chamber:
         """Run simulation untill a plateau manifests."""
         i = 0
         self._next_rock()
-        while all([len(row) != 7 for row in self.chamber.rows.values()]):
+        while all([len(row) != self.chamber.width for row in self.chamber.rows.values()]):
             self._next_rock()
             i += 1
 
         return i, self.chamber
 
-def simulate(n: int, path: str = "input.txt"):
-    simulation = Simulation(cycle_jets(parse_input(path)))
-    chamber = simulation.run(n)
-    print(f"The height of the tower after {n} rocks have stopped is: {chamber.height}")
+
+def simulation(path: str = "input.txt", width: int = 7) -> Simulation:
+    return Simulation(cycle_jets(parse_input(path)), chamber_width=width)
+
+
+def draw_repeat(n: int, path: str = "input.txt", width: int = 7) -> None:
+    jet_cycle_length = len(parse_input(path))
+    for i in range(1, n + 1):
+        c, drawing = simulation(path, width).run2(jet_cycle_length * i)
+        with open(f"{path.split('.')[0]}-drawing-{i}-width-{width}.txt", "w") as fp:
+            fp.write("\n".join((
+                f"input: {path}",
+                f"width: {width}",
+                f"jet cycles: {i} ✕ {jet_cycle_length}",
+                f"height: {c.height}",
+                f"rocks: {c.nrocks}",
+                f"drawing:\n"
+            )))
+            fp.write(drawing)
 
 
 if __name__ == "__main__":
     # Part 1
-    simulate(2022)
+    chamber = simulation().run(2022)
+    print(f"The height of the tower after 2022 rocks have stopped is: {chamber.height}")
