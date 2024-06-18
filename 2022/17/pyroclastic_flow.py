@@ -330,4 +330,29 @@ def draw_repeat(n: int, path: str = "input.txt", width: int = 7) -> None:
 if __name__ == "__main__":
     # Part 1
     chamber = simulation().run(2022)
-    print(f"The height of the tower after 2022 rocks have stopped is: {chamber.height}")
+    print(f"The height of the rock tower after 2022 rocks have fallen is: {chamber.height}")
+
+    # Part 2
+    total_rocks = 1_000_000_000_000
+
+    # Works due to observed patterns from drawing the tower. Is there
+    # some sort of dynamic way to determine the correct cycle length
+    # for any arbitrary input?
+    def repetition_pattern():
+        cycle_length = len(parse_input())
+        chamber1, _ = simulation().run2(cycle_length)
+        chamber2, _ = simulation().run2(cycle_length * 2)
+        dheight, drocks = chamber2.height - chamber1.height, chamber2.nrocks - chamber1.nrocks
+
+        cycles = 0
+        while cycles * drocks < total_rocks:
+            cycles += 1
+
+        return drocks, dheight, cycles
+
+    drocks, dheight, cycles = repetition_pattern()
+    top_height = simulation().run(
+        drocks + (total_rocks - cycles * drocks)
+    ).height
+
+    print(f"The height of the rock tower after {total_rocks} have fallen is: {(cycles - 1) * dheight + top_height}")
