@@ -1,7 +1,5 @@
 import math
 from collections import defaultdict
-from functools import cache
-from itertools import product
 import itertools
 from enum import Enum
 from typing import Iterator, Iterable
@@ -9,13 +7,14 @@ from typing import Iterator, Iterable
 
 Position = tuple[int, int]
 
+
 class JetDirection(Enum):
     LEFT = "<"
     RIGHT = ">"
 
 
 def parse_input(path="input.txt") -> list[JetDirection]:
-    """An repeating iterator of jet directions with repating pattern at PATH."""
+    """A repeating iterator of jet directions with repating pattern at PATH."""
 
     def jet(char) -> JetDirection:
         return {
@@ -274,7 +273,7 @@ class Simulation:
         x0, y0 = current
         return apply_gravity(*apply_jet(x0, y0))
 
-    def draw(self, falling: tuple[Rock, Position]) -> str:
+    def draw(self, falling: tuple[Rock, Position] | None = None) -> str:
         """Print the chamber, along with the falling ROCK at POSITION if any."""
         if not falling:
             return self.chamber.draw_falling()
@@ -289,70 +288,112 @@ class Simulation:
 
         return self.chamber
 
-    def run2(self, njets: int, do_print: bool = False) -> tuple[Chamber, str]:
+    def run2(self, njets: int, do_print: bool = False) -> tuple[Chamber, tuple[Rock, Position]]:
         """Run simulation untill NJETS have been consumed."""
+        falling = None
         while self.jet_iterations < njets:
             falling = self._next_rock(njets, do_print=do_print)
 
-        return self.chamber, self.draw(falling)
-
-    def search_plateau(self) -> Chamber:
-        """Run simulation untill a plateau manifests."""
-        i = 0
-        self._next_rock()
-        while all([len(row) != self.chamber.width for row in self.chamber.rows.values()]):
-            self._next_rock()
-            i += 1
-
-        return i, self.chamber
+        return self.chamber, falling
 
 
 def simulation(path: str = "input.txt", width: int = 7) -> Simulation:
     return Simulation(cycle_jets(parse_input(path)), chamber_width=width)
 
 
-def draw_repeat(n: int, path: str = "input.txt", width: int = 7) -> None:
-    jet_cycle_length = len(parse_input(path))
+def search_cycle(path: str = "input.txt", width: int = 7, do_print: bool = False) -> tuple[int, int, int] | None:
+    """Search for a cyclical pattern in the falling rock created by input at PATH using a chamber of WIDTH."""
+    njets = len(parse_input(path))
+    max_cycle_length = njets * 100
+    max_offset = njets * 100
+
+    def dump_info(info: str):
+        print(f"Cycle length: {cycle_length}, offset: {offset}, " + info)
+
+    def cycle(chamber, cycle_length):
+        return [
+            chamber.rows[i] for i in range(max(chamber.height - cycle_length, 0), chamber.height)]
+
+    for offset in range(0, max_offset):
+        for cycle_length in range(5, max_cycle_length, 5):
+            nrocks1 = offset + cycle_length
+            nrocks2 = offset + cycle_length * 2
+            nrocks3 = offset + cycle_length * 3
+
+            if do_print:
+                dump_info(f"rocks: ({nrocks1}, {nrocks2}, {nrocks3})")
+
+            c1 = simulation(path, width).run(nrocks1)
+            c2 = simulation(path, width).run(nrocks2)
+            c3 = simulation(path, width).run(nrocks3)
+
+            if (
+                all(
+                    cycle(a, cycle_length) == cycle(b, cycle_length)
+                    for (a, b) in itertools.combinations((c1, c2, c3), 2)
+                )
+                and c3.height - c2.height == c2.height - c1.height
+            ):
+                if do_print:
+                    dump_info(f"height diff: {c2.height - c1.height}")
+
+                return offset, cycle_length, c2.height - c1.height
+
+    print("No repeating sequence found!")
+
+
+def draw_repeat(n: int, path: str = "input.txt", width: int = 7, offset: int = 0, cycle_length: int = 10) -> None:
     for i in range(1, n + 1):
-        c, drawing = simulation(path, width).run2(jet_cycle_length * i)
-        with open(f"{path.split('.')[0]}-drawing-{i}-width-{width}.txt", "w") as fp:
+        sim = simulation(path, width)
+        chamber = sim.run(offset + cycle_length * i)
+        drawing = sim.draw()
+        filename = f"{path.split('.')[0]}-drawing-{i}-width-{width}.txt" 
+
+        with open(filename, "w") as fp:
             fp.write("\n".join((
                 f"input: {path}",
                 f"width: {width}",
-                f"jet cycles: {i} ✕ {jet_cycle_length}",
-                f"height: {c.height}",
-                f"rocks: {c.nrocks}",
+                f"offset: {offset}",
+                f"cycle length: {cycle_length}",
+                f"cycles: {i}",
+                f"height: {chamber.height}",
+                f"rocks: {chamber.nrocks}",
                 f"drawing:\n"
             )))
             fp.write(drawing)
 
 
-if __name__ == "__main__":
+def debug_drawings(path: str = "input.txt"):
+    for width in (7, 9, 10):
+        repetition_pattern = search_cycle(path, width)
+        if repetition_pattern is None:
+            print(f"No repating pattern for width = {width}")
+            continue
+
+        offset, cycle_length, _ = repetition_pattern
+        draw_repeat(5, path, width, offset, cycle_length)
+
+
+def main(path: str = "input.txt"):
     # Part 1
-    chamber = simulation().run(2022)
+    chamber = simulation(path).run(2022)
     print(f"The height of the rock tower after 2022 rocks have fallen is: {chamber.height}")
 
     # Part 2
     total_rocks = 1_000_000_000_000
+    repetition_pattern = search_cycle(path)
+    if repetition_pattern is None:
+        print(f"Unable to determine height after {total_rocks} have fallen, no repeating pattern found!")
+        return
 
-    # Works due to observed patterns from drawing the tower. Is there
-    # some sort of dynamic way to determine the correct cycle length
-    # for any arbitrary input?
-    def repetition_pattern():
-        cycle_length = len(parse_input())
-        chamber1, _ = simulation().run2(cycle_length)
-        chamber2, _ = simulation().run2(cycle_length * 2)
-        dheight, drocks = chamber2.height - chamber1.height, chamber2.nrocks - chamber1.nrocks
+    offset, cycle_length, dheight = repetition_pattern
+    cycles = total_rocks // cycle_length
+    one_cycle_height = simulation(path).run(offset + cycle_length + (total_rocks - cycle_length * cycles)).height
 
-        cycles = 0
-        while cycles * drocks < total_rocks:
-            cycles += 1
+    print(
+        f"The height of the rock tower after {total_rocks} have fallen is: {(cycles - 1) * dheight + one_cycle_height}"
+    )
 
-        return drocks, dheight, cycles
 
-    drocks, dheight, cycles = repetition_pattern()
-    top_height = simulation().run(
-        drocks + (total_rocks - cycles * drocks)
-    ).height
-
-    print(f"The height of the rock tower after {total_rocks} have fallen is: {(cycles - 1) * dheight + top_height}")
+if __name__ == "__main__":
+    main()
